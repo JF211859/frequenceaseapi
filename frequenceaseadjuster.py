@@ -2,25 +2,25 @@ import os
 
 import soundfile
 
-from flask import Flask, send_file, request
+from flask import Flask, send_file, request, Blueprint
 import werkzeug
 
 from flask import Flask
 
-app = Flask(__name__)
+adjusterPage = Blueprint('adjuster', __name__, url_prefix = '/adjuster')
 
-@app.route("/hello_world")
+@adjusterPage.route("/hello_world")
 def hello_world():
     return "Hello World!"
 
-@app.route("/cantina", methods=['GET'])
+@adjusterPage.route("/cantina", methods=['GET'])
 def cantina():
     scale = float(request.args.get('scale'))
     audio_samples, sample_rate = soundfile.read("audio/CantinaBand3.wav", dtype="int16")
     soundfile.write('audio/return.wav', audio_samples, int(sample_rate * scale))
     return send_file("audio/return.wav")
 
-@app.route("/postfile", methods=['GET', 'POST'])
+@adjusterPage.route("/postfile", methods=['GET', 'POST'])
 def postfile():
     if request.method == "POST":
         if 'file' not in request.files:

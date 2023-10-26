@@ -2,13 +2,12 @@ import os
 
 import soundfile
 
-from flask import Flask, send_file, request
+from flask import Flask, send_file, request, Blueprint
 import werkzeug
 
 from flask import Flask
 
-app = Flask(__name__)
-
-@app.route("/hello_world_tester")
+testerPage = Blueprint('tester', __name__, url_prefix = '/tester')
+@testerPage.route('/hello_world')
 def hello_world():
     return "Hello Tester!"

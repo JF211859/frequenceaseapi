@@ -293,6 +293,17 @@ files = [
 ]
 
 [[package]]
+name = "pydub"
+version = "0.25.1"
+description = "Manipulate audio with an simple and easy high level interface"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pydub-0.25.1-py2.py3-none-any.whl", hash = "sha256:65617e33033874b59d87db603aa1ed450633288aefead953b30bded59cb599a6"},
+    {file = "pydub-0.25.1.tar.gz", hash = "sha256:980a33ce9949cab2a569606b65674d748ecbca4f0796887fd6f46173a7b0d30f"},
+]
+
+[[package]]
 name = "scipy"
 version = "1.11.3"
 description = "Fundamental algorithms for scientific computing in Python"
@@ -377,4 +388,4 @@ watchdog = ["watchdog (>=2.3)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.13"
-content-hash = "5609c50cd7455dfd7ad901faf1e31412de541edf360168b400a46138729fc387"
+content-hash = "e8057e98c261417b699d8b043a1465142aec48e97219c3257aae04e6e383c78f"

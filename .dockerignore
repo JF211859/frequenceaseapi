@@ -10,4 +10,4 @@ poetry.lock
 .venv*
 .python-version
 useful_commands
-auido/*
+audio/*

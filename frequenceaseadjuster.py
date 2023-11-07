@@ -1,19 +1,12 @@
 import os
+from random import getrandbits
 
 import soundfile
-
-from flask import Flask, send_file, request, Blueprint
-import werkzeug
-
-from flask import Flask
-
-from scipy import signal, fft
-
 import numpy as np
+from flask import send_file, request, Blueprint
+from scipy import fft
 
-from pydub import AudioSegment
 
-from time import sleep
 
 adjusterPage = Blueprint('adjuster', __name__, url_prefix = '/adjuster')
 
@@ -21,14 +14,26 @@ adjusterPage = Blueprint('adjuster', __name__, url_prefix = '/adjuster')
 def hello_world():
     return "Hello World!"
 
+@adjusterPage.route("/return_file", methods=["GET"])
+def return_file():
+
+    if "file_name" not in request.args:
+        print("file_name not defined")
+        return "file_name not defined", 400
+
+    return_file_name = request.args.get("file_name")
+
+    return send_file(os.path.join("audio", return_file_name))
+
 @adjusterPage.route("/", methods=['GET', 'POST'])
 def adjuster():
-    return_file_name = os.path.join("audio", "return.wav")
 
-    if request.method == "POST":
-        if 'file' not in request.files:
-            print('No file part')
-            return 'No file part', 400
+    if 'file' in request.files:
+
+        return_file_name = str(getrandbits(100)) + ".wav"
+
+        return_file_path = os.path.join("audio", return_file_name)
+
         file = request.files['file']
         # If the user does not select a file, the browser submits an
         # empty file without a filename.
@@ -38,76 +43,47 @@ def adjuster():
         if file:
             filename = file.filename
             file.save(os.path.join('audio', filename))
-            shift = int(request.args.get('shift'))
+
+            if "min_frequency" not in request.args or "max_frequency" not in request.args:
+                print("frequencies not defined")
+                return "frequencies not defined", 400
+
+            min_frequency = int(request.args.get('min_frequency'))
+            max_frequency = int(request.args.get('max_frequency'))
+            desired_peak = int(((max_frequency - min_frequency) / 2) + min_frequency)
+
             audio_samples, sample_rate = soundfile.read(os.path.join('audio', filename), dtype="int16")
 
-            fft_data = fft.fft(audio_samples)
+            fft_to_hz = sample_rate / len(audio_samples)
 
-            halfway_point = int(len(fft_data) / 2)
-            positive_fft_data = fft_data[:halfway_point]
-            negative_fft_data = fft_data[halfway_point:]
+            fft_data = fft.rfft(audio_samples)
+
+            current_peak = np.argmax(fft_data) * fft_to_hz
+            shift = int((current_peak - desired_peak) / fft_to_hz)
 
             if shift > 0:
 
-                positive_fft_data = positive_fft_data[shift:]
-                positive_fft_data = np.concatenate([positive_fft_data, ([0] * shift)])
-
-                negative_fft_data = negative_fft_data[:-shift]
-                negative_fft_data = np.concatenate([([0] * shift), negative_fft_data])
+                fft_data = fft_data[shift:]
+                fft_data = np.concatenate([fft_data, ([0] * shift)])
 
             else:
 
                 shift *= -1
 
-                positive_fft_data = positive_fft_data[:-shift]
-                positive_fft_data = np.concatenate([([0] * shift), positive_fft_data])
+                fft_data = fft_data[:-shift]
+                fft_data = np.concatenate([([0] * shift), fft_data])
 
-                negative_fft_data = negative_fft_data[shift:]
-                negative_fft_data = np.concatenate([negative_fft_data, ([0] * shift)])
+            shifted_audio = fft.irfft(fft_data)
+            shifted_audio = np.array([sample.real for sample in shifted_audio]) # pylint: disable=no-member
 
+            shifted_audio /= max(shifted_audio)
 
-            new_fft_data = np.concatenate([positive_fft_data, negative_fft_data])
+            soundfile.write(return_file_path, shifted_audio, sample_rate)
 
-            shifted_audio = fft.ifft(new_fft_data)
-            shifted_audio = np.array([sample.real for sample in shifted_audio])
+            return request.url_root + "/adjuster/return_file?file_name=" + return_file_name, 200
 
-            shifted_audio = shifted_audio.astype(np.short)
-
-            audio_segment = AudioSegment(
-                shifted_audio.tobytes(),
-                frame_rate=sample_rate,
-                sample_width=shifted_audio.dtype.itemsize,
-                channels=1
-            )
-
-            beginning = audio_segment[:len(audio_segment) / 3]
-            middle = audio_segment[len(audio_segment) / 3:len(audio_segment) * 2 / 3]
-            end = audio_segment[len(audio_segment) * 2 / 3:]
-
-            middle = middle + 15
-            audio_segment = beginning + middle + end
-
-            audio_segment.export(return_file_name, format="wav")
-
-            sleep(1)
-
-            print(f"sending {return_file_name}")
-
-            return send_file(return_file_name)
-
-    if request.method == "GET":
-        if os.path.exists(return_file_name):
-            file_handle = open(return_file_name, 'rb')
-            try:
-                os.remove(return_file_name)
-            except Exception as error:
-                print("Error removing or closing downloaded file handle", error)
-            return send_file(file_handle, mimetype="wav")
-
-
-        else:
-
-            return '''
+    else:
+        return '''
             <!doctype html>
             <title>Upload new File</title>
             <h1>Upload new File</h1>
@@ -115,32 +91,4 @@ def adjuster():
             <input type=file name=file>
             <input type=submit value=Upload>
             </form>
-            '''
-
-@adjusterPage.route("/postfile", methods=['GET', 'POST'])
-def postfile():
-    if request.method == "POST":
-        if 'file' not in request.files:
-            print('No file part')
-            return 'No file part', 400
-        file = request.files['file']
-        # If the user does not select a file, the browser submits an
-        # empty file without a filename.
-        if file.filename == '':
-            print('No selected file')
-            return 'No file part', 400
-        if file:
-            filename = file.filename
-            file.save(os.path.join('audio', filename))
-            return "File Uploaded", 200
-    return '''
-    <!doctype html>
-    <title>Upload new File</title>
-    <h1>Upload new File</h1>
-    <form method=post enctype=multipart/form-data>
-      <input type=file name=file>
-      <input type=submit value=Upload>
-    </form>
-    '''
-
-
+        ''', 200

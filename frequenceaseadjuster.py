@@ -23,6 +23,8 @@ def return_file():
 
     return_file_name = request.args.get("file_name")
 
+    print(os.listdir('audio'))
+
     return send_file(os.path.join("audio", return_file_name))
 
 @adjusterPage.route("/", methods=['GET', 'POST'])
@@ -54,6 +56,9 @@ def adjuster():
 
             audio_samples, sample_rate = soundfile.read(os.path.join('audio', filename), dtype="int16")
 
+            if isinstance(audio_samples[0], np.ndarray):
+                audio_samples = np.mean(audio_samples, axis = 1)
+
             fft_to_hz = sample_rate / len(audio_samples)
 
             fft_data = fft.rfft(audio_samples)
@@ -79,6 +84,10 @@ def adjuster():
             shifted_audio /= max(shifted_audio)
 
             soundfile.write(return_file_path, shifted_audio, sample_rate)
+
+            if not os.path.exists(return_file_path):
+
+                return "Failed to Save", 400
 
             return request.url_root + "/adjuster/return_file?file_name=" + return_file_name, 200
 
